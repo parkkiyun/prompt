@@ -1,0 +1,20 @@
+{
+    "교과": {
+        "국어": {
+            "system_prompt": "국어 교과 시스템 프롬프트입니다.",
+            "user_prompt_template": "학생 정보: {student_info}\n\n내용: {content}\n\n질문: {question}"
+        },
+        "수학": {
+            "system_prompt": "수학 교과 시스템 프롬프트입니다.",
+            "user_prompt_template": "학생 정보: {student_info}\n\n내용: {content}\n\n질문: {question}"
+        }
+    },
+    "진로": {
+        "system_prompt": "진로 관련 시스템 프롬프트입니다.",
+        "user_prompt_template": "학생 정보: {student_info}\n\n내용: {content}\n\n질문: {question}"
+    },
+    "자율": {
+        "system_prompt": "자율 활동 시스템 프롬프트입니다.",
+        "user_prompt_template": "학생 정보: {student_info}\n\n내용: {content}\n\n질문: {question}"
+    }
+} 
