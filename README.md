@@ -14,8 +14,8 @@
 
 1. 저장소 클론
    ```
-   git clone https://github.com/사용자명/hanol_database_prompt.git
-   cd hanol_database_prompt
+   git clone https://github.com/parkkiyun/prompt.git
+   cd prompt
    ```
 
 2. 필요한 패키지 설치
