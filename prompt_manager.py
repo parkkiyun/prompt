@@ -3,6 +3,8 @@ import json
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 import io
 import tempfile
 
@@ -33,30 +35,37 @@ def connect_to_google_drive():
             creds = ServiceAccountCredentials.from_json_keyfile_name('service_account.json', scope)
         else:
             st.error("서비스 계정 정보를 찾을 수 없습니다. Streamlit Secrets 또는 service_account.json 파일을 설정해주세요.")
-            return None
-            
-        # 서비스 계정 인증
-        client = gspread.authorize(creds)
+            return None, None
         
-        return client
+        # gspread 클라이언트와 Google Drive API 서비스 생성    
+        gspread_client = gspread.authorize(creds)
+        drive_service = build('drive', 'v3', credentials=creds)
+        
+        return gspread_client, drive_service
     except Exception as e:
         st.error(f"Google 드라이브 연결 중 오류가 발생했습니다: {str(e)}")
-        return None
+        return None, None
 
 def get_file_from_drive(file_id):
     """Google 드라이브에서 파일을 가져옵니다."""
     try:
-        client = connect_to_google_drive()
-        if client is None:
+        _, drive_service = connect_to_google_drive()
+        if drive_service is None:
             return None
             
         # 드라이브 API를 통해 파일 가져오기
-        file = client.drive.files().get(fileId=file_id, fields="name,mimeType").execute()
+        request = drive_service.files().get_media(fileId=file_id)
         
         # 파일 내용 다운로드
-        file_content = client.drive.files().get_media(fileId=file_id).execute()
+        file_content = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_content, request)
         
-        return file_content
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+        
+        file_content.seek(0)
+        return file_content.read()
     except Exception as e:
         st.error(f"파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
         return None
@@ -64,8 +73,8 @@ def get_file_from_drive(file_id):
 def update_file_in_drive(file_id, content):
     """Google 드라이브의 파일을 업데이트합니다."""
     try:
-        client = connect_to_google_drive()
-        if client is None:
+        _, drive_service = connect_to_google_drive()
+        if drive_service is None:
             return False
             
         # 임시 파일 생성
@@ -74,15 +83,11 @@ def update_file_in_drive(file_id, content):
             temp_path = temp.name
         
         # 파일 업데이트
-        media_body = client.http.MediaFileUpload(
-            temp_path,
-            mimetype='application/json',
-            resumable=True
-        )
+        media = MediaFileUpload(temp_path, mimetype='application/json', resumable=True)
         
-        client.drive.files().update(
+        drive_service.files().update(
             fileId=file_id,
-            media_body=media_body
+            media_body=media
         ).execute()
         
         # 임시 파일 삭제
