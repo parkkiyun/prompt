@@ -14,12 +14,12 @@ def connect_to_google_drive():
     try:
         # Streamlit Secrets에서 서비스 계정 정보 가져오기
         if 'gcp_service_account' in st.secrets:
-            # 서비스 계정 정보를 임시 파일로 저장
-            service_account_info = st.secrets["gcp_service_account"]
-            service_account_info_str = json.dumps(service_account_info)
+            # 서비스 계정 정보를 딕셔너리로 변환
+            service_account_info = dict(st.secrets["gcp_service_account"])
             
+            # 임시 파일에 서비스 계정 정보 저장
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temp:
-                temp.write(service_account_info_str)
+                json.dump(service_account_info, temp)
                 temp_path = temp.name
             
             # 임시 파일로 인증
