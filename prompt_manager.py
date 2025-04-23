@@ -12,13 +12,30 @@ def connect_to_google_drive():
              'https://www.googleapis.com/auth/drive']
     
     try:
-        # 서비스 계정 키 파일 확인
-        if not os.path.exists('service_account.json'):
-            st.error("service_account.json 파일을 찾을 수 없습니다.")
+        # Streamlit Secrets에서 서비스 계정 정보 가져오기
+        if 'gcp_service_account' in st.secrets:
+            # 서비스 계정 정보를 임시 파일로 저장
+            service_account_info = st.secrets["gcp_service_account"]
+            service_account_info_str = json.dumps(service_account_info)
+            
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temp:
+                temp.write(service_account_info_str)
+                temp_path = temp.name
+            
+            # 임시 파일로 인증
+            creds = ServiceAccountCredentials.from_json_keyfile_name(temp_path, scope)
+            
+            # 임시 파일 삭제
+            os.unlink(temp_path)
+            
+        # 로컬 파일에서 서비스 계정 정보 가져오기
+        elif os.path.exists('service_account.json'):
+            creds = ServiceAccountCredentials.from_json_keyfile_name('service_account.json', scope)
+        else:
+            st.error("서비스 계정 정보를 찾을 수 없습니다. Streamlit Secrets 또는 service_account.json 파일을 설정해주세요.")
             return None
             
         # 서비스 계정 인증
-        creds = ServiceAccountCredentials.from_json_keyfile_name('service_account.json', scope)
         client = gspread.authorize(creds)
         
         return client
@@ -134,10 +151,10 @@ def main():
     
     # 파일 원본 소스 표시
     file_id = st.secrets.get("PROMPTS_FILE_ID", None)
-    if file_id:
-        st.info(f"Google 드라이브에서 프롬프트 파일을 불러왔습니다.")
+    if file_id and 'gcp_service_account' in st.secrets:
+        st.info(f"Google 드라이브에서 프롬프트 파일을 불러오는 중입니다.")
     else:
-        st.info("로컬 파일에서 프롬프트를 불러왔습니다.")
+        st.info("로컬 파일에서 프롬프트를 불러오는 중입니다.")
     
     # 사이드바 메뉴
     menu = st.sidebar.selectbox(
