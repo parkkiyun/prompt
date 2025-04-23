@@ -46,12 +46,52 @@ def connect_to_google_drive():
         st.error(f"Google 드라이브 연결 중 오류가 발생했습니다: {str(e)}")
         return None, None
 
+def find_file_in_folder(folder_id, filename='prompts.json'):
+    """폴더 내에서 특정 파일을 찾습니다."""
+    try:
+        _, drive_service = connect_to_google_drive()
+        if drive_service is None:
+            return None
+            
+        # 폴더 내 파일 목록 조회
+        query = f"'{folder_id}' in parents and name = '{filename}'"
+        results = drive_service.files().list(
+            q=query,
+            spaces='drive',
+            fields='files(id, name)'
+        ).execute()
+        
+        files = results.get('files', [])
+        
+        if not files:
+            st.warning(f"폴더에서 {filename} 파일을 찾을 수 없습니다.")
+            return None
+            
+        # 파일 ID 반환
+        return files[0]['id']
+    except Exception as e:
+        st.error(f"폴더에서 파일을 찾는 중 오류가 발생했습니다: {str(e)}")
+        return None
+
 def get_file_from_drive(file_id):
     """Google 드라이브에서 파일을 가져옵니다."""
     try:
         _, drive_service = connect_to_google_drive()
         if drive_service is None:
             return None
+        
+        # 파일 ID가 폴더 ID인 경우, 폴더 내에서 prompts.json 파일 찾기
+        try:
+            # 먼저 파일 정보를 가져와 폴더인지 확인
+            file_metadata = drive_service.files().get(fileId=file_id, fields='mimeType').execute()
+            if file_metadata['mimeType'] == 'application/vnd.google-apps.folder':
+                st.info("폴더 ID가 제공되었습니다. 폴더 내에서 prompts.json 파일을 찾습니다.")
+                file_id = find_file_in_folder(file_id)
+                if file_id is None:
+                    return None
+        except Exception as e:
+            # 오류가 발생해도 원래 파일 ID로 계속 진행
+            pass
             
         # 드라이브 API를 통해 파일 가져오기
         request = drive_service.files().get_media(fileId=file_id)
@@ -76,6 +116,29 @@ def update_file_in_drive(file_id, content):
         _, drive_service = connect_to_google_drive()
         if drive_service is None:
             return False
+        
+        # 파일 ID가 폴더 ID인 경우, 폴더 내에서 prompts.json 파일 찾기
+        try:
+            # 먼저 파일 정보를 가져와 폴더인지 확인
+            file_metadata = drive_service.files().get(fileId=file_id, fields='mimeType').execute()
+            if file_metadata['mimeType'] == 'application/vnd.google-apps.folder':
+                file_id = find_file_in_folder(file_id)
+                if file_id is None:
+                    # 폴더에 파일이 없으면 새로 생성
+                    new_file = drive_service.files().create(
+                        body={
+                            'name': 'prompts.json',
+                            'parents': [file_id]
+                        },
+                        media_body=MediaFileUpload(
+                            io.BytesIO(content.encode('utf-8')),
+                            mimetype='application/json'
+                        )
+                    ).execute()
+                    return True
+        except Exception as e:
+            # 오류가 발생해도 원래 파일 ID로 계속 진행
+            pass
             
         # 임시 파일 생성
         with tempfile.NamedTemporaryFile(delete=False) as temp:
